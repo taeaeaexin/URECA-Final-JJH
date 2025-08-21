@@ -22,7 +22,7 @@ https://jijonnghae.site/
 - 경험치, 레벨, 칭호 시스템 등 게이미피케이션 접목  
 - MCP, OCR 등 AI로 사용자 경험 향상  
 
-프로젝트에 대한 더 많은 내용들은 [Wiki](https://github.com/spring-projects/spring-boot/wiki)에 등록되어있습니다.
+프로젝트에 대한 더 많은 내용들은 [Wiki](https://github.com/taeaeaexin/URECA-Final-JJH/wiki/%EB%AA%A9%EC%B0%A8)에 등록되어있습니다.
 
 <br>
 
