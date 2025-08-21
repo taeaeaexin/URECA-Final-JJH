@@ -1,0 +1,93 @@
+name: CI/CD to EC2
+on:
+  push:
+    branches:
+      - main
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'liberica'
+
+      - name: Grant execute permission for Gradle Wrapper
+        run: chmod +x ./gradlew
+
+      - name: Create application-secret.properties
+        run: |
+          echo "${{ secrets.APPLICATION_SECRET_PROPERTIES }}" > src/main/resources/application-secret.properties
+      - name: Build with Gradle
+        run: ./gradlew build
+      - name: Run Tests
+        run: ./gradlew test
+  deploy:
+    name: Build and Deploy Spring Boot App to EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'liberica'
+          java-version: '17'
+
+      - name: Grant execute permission for Gradle Wrapper
+        run: chmod +x ./gradlew
+
+      - name: Create application-secret.properties
+        run: |
+          echo "${{ secrets.APPLICATION_SECRET_PROPERTIES }}" > src/main/resources/application-secret.properties
+      - name: Build Spring Boot App
+        run: ./gradlew clean build -x test
+
+      - name: Check built JARs
+        run: ls -lh build/libs/
+
+      - name: Save EC2 SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 400 key.pem
+      - name: Ensure remote app directory exists
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p ${{ secrets.EC2_APP_DIR }}"
+      - name: Deploy JAR to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem \
+            build/libs/${{ secrets.APP_NAME }} \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_DIR }}/${{ secrets.APP_NAME }}
+      - name: Run Spring Boot app on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          pkill -f "${{ secrets.APP_NAME }}" || true  # 기존 프로세스 종료
+
+          # 프로세스가 완전히 종료될 때까지 대기 (최대 10초)
+          for i in {1..10}; do
+            if ! lsof -i :8081 > /dev/null; then
+              echo "✅ 포트 8081 비움 확인"
+              break
+            else
+              echo "⏳ 포트 8081 사용 중, 대기 중... (\${i}초)"
+              sleep 1
+            fi
+          done
+
+          nohup java -jar ${{ secrets.EC2_APP_DIR }}/${{ secrets.APP_NAME }} --server.port=8081 > ~/app.log 2>&1 &
+
+          # 새 프로세스가 정상 기동되었는지 확인 (최대 10초 대기)
+          for i in {1..10}; do
+            if lsof -i :8081 > /dev/null; then
+              echo "🚀 Spring Boot 앱 실행 완료"
+              break
+            else
+              echo "⌛ 앱 기동 대기 중... (\${i}초)"
+              sleep 1
+            fi
+          done
+          EOF

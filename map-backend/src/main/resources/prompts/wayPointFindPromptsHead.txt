@@ -1,0 +1,1 @@
+select s.category,s.latitude,s.longitude,u.visited_at,s.name from stores s join store_usages u on u.store_id=s.id where u.user_id=uuid_to_bin('

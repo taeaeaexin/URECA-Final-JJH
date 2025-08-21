@@ -1,0 +1,3 @@
+'); SELECT *
+    FROM stores
+    WHERE latitude BETWEEN

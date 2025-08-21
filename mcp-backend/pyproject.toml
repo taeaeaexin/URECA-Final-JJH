@@ -1,0 +1,15 @@
+[project]
+name = "mcp-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+python = ">=3.10,<4.0"
+
+dependencies = [
+    "fastapi>=0.116.1",
+    "fastmcp>=2.10.6",
+    "openai>=1.97.1",
+    "pymysql>=1.1.1",
+    "python-dotenv>=1.1.1",
+    "pytz>=2025.2",
+]

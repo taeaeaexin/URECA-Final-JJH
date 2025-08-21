@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>STOMP Chat Example</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    #chat {
+      width: 400px; height: 300px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px;
+      margin-bottom: 10px;
+    }
+    #controls input {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+<h3>STOMP Chat Room</h3>
+
+<div id="controls">
+  <input type="text" id="roomIdInput" placeholder="채팅방 ID" value="room123" />
+  <input type="text" id="senderInput" placeholder="사용자명" value="user1" />
+  <button id="connectBtn">접속</button>
+</div>
+
+<div id="chat"></div>
+<input type="text" id="messageInput" placeholder="메시지 입력" style="width: 300px;" disabled />
+<button id="sendBtn" disabled>전송</button>
+
+<script>
+  let stompClient = null;
+  let currentRoomId = null;
+  let currentSender = null;
+
+  const chatDiv = document.getElementById("chat");
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const connectBtn = document.getElementById("connectBtn");
+  const roomIdInput = document.getElementById("roomIdInput");
+  const senderInput = document.getElementById("senderInput");
+
+  function showMessage(message) {
+    const p = document.createElement("p");
+    p.textContent = message;
+    chatDiv.appendChild(p);
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+  }
+
+  //구독(connect)
+  connectBtn.onclick = function() {
+    if (stompClient && stompClient.connected) {
+      stompClient.disconnect();
+    }
+    currentRoomId = roomIdInput.value.trim();
+    currentSender = senderInput.value.trim();
+
+    if (!currentRoomId || !currentSender) {
+      alert("채팅방 ID와 사용자명을 입력하세요.");
+      return;
+    }
+
+    chatDiv.innerHTML = ""; // 채팅창 초기화
+    messageInput.disabled = false;
+    sendBtn.disabled = false;
+
+    // const socket = new SockJS("http://15.164.81.45/api/user/chat/ws");
+    const socket = new SockJS("http://localhost:8082/api/user/chat/ws");
+    stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, function(frame) {
+      console.log("Connected: " + frame);
+
+      stompClient.subscribe(`/topic/chat.room.${currentRoomId}`, function(msg) {
+        const chatMessage = JSON.parse(msg.body);
+        showMessage(chatMessage.sender + ": " + chatMessage.content);
+      });
+
+      showMessage("채팅방에 입장했습니다: " + currentRoomId);
+    });
+  };
+
+  //send
+  sendBtn.onclick = function() {
+    const content = messageInput.value.trim();
+    if (content && stompClient && stompClient.connected) {
+      const chatMessage = {
+        sender: currentSender,
+        content: content
+      };
+      stompClient.send(`/app/chat.sendMessage.${currentRoomId}`, {}, JSON.stringify(chatMessage));
+      messageInput.value = "";
+    }
+  };
+
+  messageInput.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+      sendBtn.click();
+    }
+  });
+</script>
+</body>
+</html>
